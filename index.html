@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ラウドネスと音色：大きさをそろえてみよう</title>
+<style>
+  :root { --text:#1B2A33; --title:#1A5276; --teal:#0E6E8A; --amber:#D1782F; --tint:#E3EFF4; --muted:#7B8C96; --line:#C9D6DC; --sub:#445A66; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin:0; background:#fff; color:var(--text); }
+  body { font-family: Meiryo, "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif; max-width:560px; margin:0 auto;
+    padding: max(14px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left)); }
+  h1 { font-size:20px; color:var(--title); margin:4px 0 2px; }
+  h2 { font-size:16px; color:var(--title); margin:14px 0 6px; }
+  .sub { font-size:13px; color:var(--sub); margin:0 0 10px; line-height:1.5; }
+  p, li { font-size:15px; line-height:1.6; }
+  .card { background:var(--tint); border-radius:12px; padding:12px; margin-bottom:12px; }
+  .note { font-size:13px; line-height:1.6; color:var(--sub); background:#fff; border:1px solid var(--line); border-radius:10px; padding:8px 10px; margin-bottom:12px; }
+  .note ul { margin:4px 0 0; padding-left:1.2em; } .note li { font-size:13px; }
+  button { font:inherit; touch-action:manipulation; cursor:pointer; }
+  .big { width:100%; font-size:17px; font-weight:700; color:#fff; background:var(--title); border:none; border-radius:12px; min-height:54px; margin:6px 0; }
+  .big.amber { background:var(--amber); }
+  .big.ghost { background:#fff; color:var(--title); border:2px solid var(--teal); }
+  .seg { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin:6px 0 10px; }
+  .seg button { font-size:14px; font-weight:700; color:var(--teal); background:#fff; border:1.5px solid var(--line); border-radius:8px; padding:9px 2px; }
+  .seg button[aria-pressed="true"] { background:var(--title); border-color:var(--title); color:#fff; }
+  .ab { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px; }
+  .ab div { border:2px solid var(--line); border-radius:12px; text-align:center; padding:14px 6px; background:#fff; transition:background .08s,border-color .08s; }
+  .ab div b { display:block; font-size:26px; color:var(--title); }
+  .ab div span { font-size:13px; color:var(--sub); }
+  .ab div.on { background:var(--teal); border-color:var(--teal); } .ab div.on b, .ab div.on span { color:#fff; }
+  .slider { margin:6px 0 4px; } .slider input { width:100%; }
+  .lbls { display:flex; justify-content:space-between; font-size:12px; color:var(--sub); }
+  .fine { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin:8px 0 12px; }
+  .fine button { font-size:15px; font-weight:700; color:var(--title); background:#fff; border:1.5px solid var(--teal); border-radius:10px; padding:11px 0; }
+  .prog { font-size:13px; color:var(--sub); margin-bottom:6px; }
+  .res { background:#fff; border:1px solid var(--line); border-radius:12px; padding:10px; margin-bottom:10px; }
+  .res h3 { font-size:15px; margin:0 0 4px; color:var(--title); display:flex; justify-content:space-between; }
+  .res .v { font-weight:700; color:var(--teal); }
+  .res .pair { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .res canvas { width:100%; height:78px; display:block; }
+  .sum ul { list-style:none; margin:0; padding:0; }
+  .sum li { font-size:15px; line-height:1.6; padding:8px 0; border-bottom:1px solid #fff; display:flex; gap:10px; align-items:flex-start; }
+  .sum li:last-child { border-bottom:none; }
+  .sum .ic { flex:none; width:30px; height:30px; border-radius:15px; background:var(--teal); color:#fff; font-weight:700; text-align:center; line-height:30px; font-size:14px; }
+  .sum .ic.dn { background:var(--amber); } .sum .ic.eq { background:var(--muted); }
+  .sum b { color:var(--title); }
+  .sum .fh { font-weight:700; color:var(--title); font-size:14px; margin:10px 0 2px; }
+  .sum .hint { font-size:12px; color:var(--sub); margin:8px 0 0; line-height:1.5; }
+  .bar { position:relative; height:16px; background:var(--tint); border-radius:8px; margin:6px 0; }
+  .bar .zero { position:absolute; left:50%; top:-2px; bottom:-2px; width:2px; background:var(--muted); }
+  .bar .fill { position:absolute; top:2px; bottom:2px; background:var(--teal); border-radius:6px; }
+  .res small { display:block; color:var(--sub); font-size:12px; line-height:1.5; }
+  textarea { width:100%; height:90px; font-size:12px; font-family:ui-monospace,monospace; }
+  [hidden] { display:none !important; }
+</style>
+</head>
+<body>
+<h1>ラウドネスと音色の実験</h1>
+<p class="sub" id="lead">等ラウドネス曲線と同じく、1000 Hz の純音（標準音）を基準にします。比較音が標準音と「同じ大きさ」に聞こえるように、比較音の大きさを調整します（調整法）。</p>
+
+<!-- ============ 開始画面 ============ -->
+<section id="scrStart">
+  <div class="card">
+    <h2 style="margin-top:0">比較する音色（複数選択）</h2>
+    <div class="seg" id="condsel" style="grid-template-columns:repeat(4,1fr)"></div>
+    <h2>比較音の基本周波数（複数選択）</h2>
+    <div class="seg" id="f0sel" style="grid-template-columns:repeat(3,1fr)"></div>
+    <p class="sub" style="margin:0">標準音は 1000 Hz の純音で固定です。<b>1000 Hz</b> を選ぶと標準音と同じ高さになり、音色の効果だけを取り出せます。<b>純音だけ</b>を選び、周波数を<b>複数</b>選ぶと、等ラウドネス曲線（自分の聞こえの特性）が描けます。</p>
+    <p class="sub" id="count" style="margin:8px 0 0; font-weight:700; color:var(--title)"></p>
+  </div>
+  <div class="card">
+    <h2 style="margin-top:0">1. 音量をあわせる</h2>
+    <p style="margin:0 0 6px">下のボタンで標準音（1000 Hz）を鳴らし、端末の音量を「小さめだがはっきり聞こえる」程度にします。<b>このあと音量は変えないでください。</b></p>
+    <button class="big ghost" id="btnTest" type="button">▶ 標準音を鳴らす</button>
+  </div>
+  <div class="card">
+    <h2 style="margin-top:0">2. 実験のしかた</h2>
+    <ul style="margin:0; padding-left:1.2em">
+      <li>A（標準音：1000 Hz の純音）とB（比較音）が交互に鳴ります。</li>
+      <li>スライダーでBの大きさを変え、AとBが<b>同じ大きさ</b>に聞こえたら「決定」を押します（高さが違っても、大きさだけを比べます）。</li>
+      <li>試行の回数は、選んだ音色と周波数の数で決まります（上に表示）。</li>
+    </ul>
+  </div>
+  <button class="big" id="btnStart" type="button">実験を始める</button>
+  <div class="note"><b>注意</b>
+    <ul>
+      <li>イヤホン（ヘッドホン）を推奨します。</li>
+      <li>iPhone はマナーモードを解除してください。</li>
+      <li>大きな音が出ないよう、最初の音量は小さめにしてください。</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============ 試行画面 ============ -->
+<section id="scrTrial" hidden>
+  <div class="prog" id="prog"></div>
+  <div class="ab"><div id="boxA"><b>A</b><span>標準音</span></div><div id="boxB"><b>B</b><span>比較音</span></div></div>
+  <div class="slider">
+    <input type="range" id="adj" min="-24" max="18" step="0.5" value="0" aria-label="Bの大きさ">
+    <div class="lbls"><span>Bを小さく</span><span>Bを大きく</span></div>
+  </div>
+  <div class="fine">
+    <button type="button" data-d="-3">−3</button><button type="button" data-d="-1">−1</button>
+    <button type="button" data-d="1">＋1</button><button type="button" data-d="3">＋3</button>
+  </div>
+  <button class="big" id="btnDecide" type="button">AとBが同じ大きさ（決定）</button>
+  <button class="big ghost" id="btnPause" type="button">■ 一時停止</button>
+  <p class="sub">スライダーの数値は表示されません。耳で判断してください。</p>
+</section>
+
+<!-- ============ 結果画面 ============ -->
+<section id="scrResult" hidden>
+  <h2 style="margin-top:0">結果（まとめ）</h2>
+  <div class="card sum" id="summary"></div>
+  <div class="res" id="contourBox" hidden><h3><span>あなたの等ラウドネス曲線（純音）</span></h3><small>縦軸：標準音（1000 Hz）と同じ大きさにするために必要な音圧差（dB）</small><canvas id="contour" style="height:190px"></canvas></div>
+  <h2>くわしい結果</h2>
+  <p class="sub">0 dB ＝ 標準音（1000 Hz）と同じ音圧（RMS）。<b>プラス</b>は、標準音と同じ大きさに聞こえるのに、より大きな音圧が必要だったことを表します。</p>
+  <div id="resList"></div>
+  <div class="note" id="interp"></div>
+  <button class="big ghost" id="btnCopy" type="button">結果をコピー（CSV）</button>
+  <textarea id="csv" hidden readonly></textarea>
+  <button class="big" id="btnAgain" type="button">もう一度やる</button>
+</section>
+
+<script>
+(() => {
+  // ---------------- stimuli ----------------
+  const COND = {
+    pure: { name: '純音', amp: n => (n === 1 ? 1 : 0), note: '基音だけの純音。1 kHz の純音と同じ大きさにする音圧差は、等ラウドネス曲線の1点にあたります。' },
+    tri:  { name: '三角波', amp: n => (n % 2 ? (n % 4 === 1 ? 1 : -1) / (n * n) : 0), note: '奇数倍音のみ、高次倍音は急に弱い。' },
+    sq:   { name: '矩形波', amp: n => (n % 2 ? 1 / n : 0), note: '奇数倍音のみ、高次倍音も比較的強い。' },
+    saw:  { name: 'ノコギリ波', amp: n => 1 / n, note: 'すべての倍音を含み、高次倍音が強い。' },
+  };
+  const ORDER = ['pure', 'tri', 'sq', 'saw'];
+  const REF_DBFS = -40;       // standard tone (1 kHz) RMS (dBFS)
+  const REF_F = 1000;         // standard tone frequency (Hz)
+  const FMAX = 8000;          // harmonics up to 8 kHz
+  const START_OFFSETS = [-9, 9];   // relative to the expected value E0
+  const RANGE = 18;               // slider half-range (dB) around E0
+  const CYCLE = 2.6, ON = 1.0, GAP = 0.3, RAMP = 0.015;
+
+  function harmonics(key, f0) {
+    const nMax = Math.max(1, Math.floor(FMAX / f0));
+    const a = []; let s2 = 0;
+    for (let n = 1; n <= nMax; n++) { const v = COND[key].amp(n); a.push(v); s2 += v * v; }
+    const k = 1 / Math.sqrt(s2);                // normalise: RMS equal to a unit sine
+    return a.map(v => v * k);
+  }
+  // ISO 226:2003 40-phon contour (SPL needed at each frequency), computed from the standard's coefficients
+  const ISO = (() => {
+    const F = [20,25,31.5,40,50,63,80,100,125,160,200,250,315,400,500,630,800,1000,1250,1600,2000,2500,3150,4000,5000,6300,8000,10000,12500];
+    const A = [.532,.506,.480,.455,.432,.409,.387,.367,.349,.330,.315,.301,.288,.276,.267,.259,.253,.250,.246,.244,.243,.243,.243,.242,.242,.245,.254,.271,.301];
+    const LU = [-31.6,-27.2,-23.0,-19.1,-15.9,-13.0,-10.3,-8.1,-6.2,-4.5,-3.1,-2.0,-1.1,-.4,0,.3,.5,0,-2.7,-4.1,-1.0,1.7,2.5,1.2,-2.1,-7.1,-11.2,-10.7,-3.1];
+    const TF = [78.5,68.7,59.5,51.1,44.0,37.5,31.5,26.5,22.1,17.9,14.4,11.4,8.6,6.2,4.4,3.0,2.2,2.4,3.5,1.7,-1.3,-4.2,-6.0,-5.4,-1.5,6.0,12.6,13.9,12.3];
+    const spl = F.map((f, i) => { const Af = 4.47e-3 * (Math.pow(10, 0.025 * 40) - 1.15) + Math.pow(0.4 * Math.pow(10, (TF[i] + LU[i]) / 10 - 9), A[i]); return (10 / A[i]) * Math.log10(Af) - LU[i] + 94; });
+    return f => {                                   // log-frequency interpolation
+      if (f <= F[0]) return spl[0]; if (f >= F[F.length - 1]) return spl[spl.length - 1];
+      let i = 0; while (F[i + 1] < f) i++;
+      const r = (Math.log(f) - Math.log(F[i])) / (Math.log(F[i + 1]) - Math.log(F[i]));
+      return spl[i] + r * (spl[i + 1] - spl[i]);
+    };
+  })();
+  const w40 = f => Math.pow(10, (40 - ISO(f)) / 20);          // sensitivity relative to 1 kHz (amplitude)
+  function pred40(key, f0) {      // dB the tone needs (re equal RMS) to match a 1 kHz pure tone, using the 40-phon weighting
+    const h = harmonics(key, f0); let p = 0;
+    h.forEach((a, i) => { const w = w40(f0 * (i + 1)); p += a * a * w * w; });
+    return -10 * Math.log10(p);
+  }
+  const E0 = f0 => Math.round(pred40('pure', f0) * 2) / 2;
+  // A-weighting (linear gain)
+  function aw(f) {
+    const f2 = f * f;
+    const ra = (12194 ** 2 * f2 * f2) / ((f2 + 20.6 ** 2) * Math.sqrt((f2 + 107.7 ** 2) * (f2 + 737.9 ** 2)) * (f2 + 12194 ** 2));
+    return ra * Math.pow(10, 2 / 20);
+  }
+
+  // ---------------- audio ----------------
+  let ctx = null, master = null, voice = null, timer = null, nextT = 0, uiTimers = [];
+  function ensureAudio() {
+    if (!ctx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      ctx = new AC();
+      master = ctx.createGain(); master.gain.value = 1;
+      const comp = ctx.createDynamicsCompressor();
+      master.connect(comp); comp.connect(ctx.destination);
+    }
+    unlockIOS();
+    if (ctx.state !== 'running') ctx.resume().catch(() => {});
+  }
+  let unlocked = false;
+  function unlockIOS() {
+    if (unlocked) return; unlocked = true;
+    try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
+    try {
+      const sr = 8000, n = sr / 2, buf = new Uint8Array(44 + n), dv = new DataView(buf.buffer);
+      const wr = (o, t) => { for (let i = 0; i < t.length; i++) buf[o + i] = t.charCodeAt(i); };
+      wr(0, 'RIFF'); dv.setUint32(4, 36 + n, true); wr(8, 'WAVEfmt '); dv.setUint32(16, 16, true);
+      dv.setUint16(20, 1, true); dv.setUint16(22, 1, true); dv.setUint32(24, sr, true); dv.setUint32(28, sr, true);
+      dv.setUint16(32, 1, true); dv.setUint16(34, 8, true); wr(36, 'data'); dv.setUint32(40, n, true); buf.fill(128, 44);
+      const a = new Audio(URL.createObjectURL(new Blob([buf], { type: 'audio/wav' })));
+      a.loop = true; a.setAttribute('playsinline', ''); a.play().catch(() => {});
+    } catch (e) {}
+  }
+  function makeWave(h) {
+    const real = new Float32Array(h.length + 1), imag = new Float32Array(h.length + 1);
+    h.forEach((a, i) => { imag[i + 1] = a; });
+    if (typeof window.PeriodicWave === 'function') {
+      try { return { wave: new PeriodicWave(ctx, { real, imag, disableNormalization: true }), comp: 1 }; } catch (e) {}
+    }
+    const wave = ctx.createPeriodicWave(real, imag);       // fallback: normalised to peak 1
+    let peak = 0; for (let k = 0; k < 2048; k++) { const th = 2 * Math.PI * k / 2048; let v = 0; h.forEach((a, i) => { v += a * Math.sin((i + 1) * th); }); peak = Math.max(peak, Math.abs(v)); }
+    return { wave, comp: peak };
+  }
+  const gSine = () => Math.pow(10, REF_DBFS / 20) / Math.SQRT1_2;       // gain giving RMS = REF_DBFS for a unit sine
+  const gB = (db, comp) => gSine() * comp * Math.pow(10, db / 20);
+
+  function startVoice(f0, key, startDb) {
+    ensureAudio(); stopVoice();
+    const oscA = ctx.createOscillator(); oscA.type = 'sine'; oscA.frequency.value = REF_F;
+    const lvA = ctx.createGain(); lvA.gain.value = gSine();
+    const gateA = ctx.createGain(); gateA.gain.value = 0;
+    oscA.connect(lvA); lvA.connect(gateA); gateA.connect(master);
+    const { wave, comp } = makeWave(harmonics(key, f0));
+    const oscB = ctx.createOscillator(); oscB.setPeriodicWave(wave); oscB.frequency.value = f0;
+    const lvB = ctx.createGain(); lvB.gain.value = gB(startDb, comp);
+    const gateB = ctx.createGain(); gateB.gain.value = 0;
+    oscB.connect(lvB); lvB.connect(gateB); gateB.connect(master);
+    oscA.start(); oscB.start();
+    voice = { oscA, oscB, lvB, gateA, gateB, comp };
+    nextT = ctx.currentTime + 0.1;
+    const loop = () => {
+      if (!voice) return;
+      schedule(nextT); nextT += CYCLE;
+      timer = setTimeout(loop, Math.max(50, (nextT - ctx.currentTime - 0.6) * 1000));
+    };
+    loop();
+  }
+  function gate(g, t, dur) {
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(1, t + RAMP);
+    g.gain.setValueAtTime(1, t + dur - RAMP); g.gain.linearRampToValueAtTime(0, t + dur);
+  }
+  function schedule(t0) {
+    gate(voice.gateA, t0, ON); gate(voice.gateB, t0 + ON + GAP, ON);
+    const now = ctx.currentTime;
+    const flash = (id, at, dur) => {
+      uiTimers.push(setTimeout(() => el(id) && el(id).classList.add('on'), Math.max(0, (at - now) * 1000)));
+      uiTimers.push(setTimeout(() => el(id) && el(id).classList.remove('on'), Math.max(0, (at + dur - now) * 1000)));
+    };
+    flash('boxA', t0, ON); flash('boxB', t0 + ON + GAP, ON);
+  }
+  function stopVoice() {
+    if (timer) { clearTimeout(timer); timer = null; }
+    uiTimers.forEach(clearTimeout); uiTimers = [];
+    ['boxA', 'boxB'].forEach(id => el(id) && el(id).classList.remove('on'));
+    if (voice) {
+      const v = voice; voice = null;
+      [v.gateA, v.gateB].forEach(g => { g.gain.cancelScheduledValues(ctx.currentTime); g.gain.setTargetAtTime(0, ctx.currentTime, 0.01); });
+      setTimeout(() => { try { v.oscA.stop(); v.oscB.stop(); } catch (e) {} }, 150);
+    }
+  }
+  function setB(db) { if (voice) voice.lvB.gain.setTargetAtTime(gB(db, voice.comp), ctx.currentTime, 0.02); }
+
+  // ---------------- UI / experiment ----------------
+  const el = id => document.getElementById(id);
+  const show = id => { ['scrStart', 'scrTrial', 'scrResult'].forEach(x => { el(x).hidden = x !== id; }); el('lead').hidden = id !== 'scrStart'; window.scrollTo(0, 0); };
+  const F0_OPTIONS = [220, 440, 880, 1000, 2000, 4000];
+  const selF0 = new Set([880]), selCond = new Set(ORDER);
+  let trials = [], idx = 0, results = [], testOn = false;
+  const fmt = v => (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(1);
+
+  function chips(container, items, sel, label) {
+    items.forEach(v => {
+      const b = document.createElement('button'); b.type = 'button'; b.dataset.v = v; b.textContent = label(v);
+      b.setAttribute('aria-pressed', sel.has(v) ? 'true' : 'false');
+      b.onclick = () => {
+        if (sel.has(v)) { if (sel.size > 1) sel.delete(v); } else sel.add(v);
+        container.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', sel.has(isNaN(+x.dataset.v) ? x.dataset.v : +x.dataset.v) ? 'true' : 'false'));
+        updateCount();
+      };
+      container.appendChild(b);
+    });
+  }
+  // ---- presets via URL (for classroom QR codes):  ?mode=contour | ?mode=timbre | ?cond=pure,tri&f0=220,1000
+  (function applyPreset() {
+    const q = new URLSearchParams(location.search), mode = q.get('mode');
+    const setTo = (set, arr) => { if (arr.length) { set.clear(); arr.forEach(v => set.add(v)); } };
+    if (mode === 'contour') { setTo(selCond, ['pure']); setTo(selF0, F0_OPTIONS.slice()); }
+    else if (mode === 'timbre') { setTo(selCond, ORDER.slice()); setTo(selF0, [1000]); }
+    const c = (q.get('cond') || '').split(',').filter(k => ORDER.includes(k));
+    const f = (q.get('f0') || '').split(',').map(Number).filter(v => F0_OPTIONS.includes(v));
+    setTo(selCond, c); setTo(selF0, f);
+  })();
+  chips(el('condsel'), ORDER, selCond, k => COND[k].name);
+  chips(el('f0sel'), F0_OPTIONS, selF0, f => f + ' Hz');
+  function updateCount() {
+    const n = selF0.size * selCond.size * START_OFFSETS.length;
+    el('count').textContent = '試行は全部で ' + n + ' 回（約 ' + Math.max(1, Math.round(n * 0.6)) + ' 分）';
+  }
+  updateCount();
+
+  function toggleTest(restart) {
+    if (testOn && !restart) { stopTestTone(); return; }
+    ensureAudio(); stopTestTone();
+    const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = REF_F;
+    const g = ctx.createGain(); g.gain.value = 0; o.connect(g); g.connect(master); o.start();
+    g.gain.setTargetAtTime(gSine(), ctx.currentTime, 0.02);
+    window.__test = { o, g }; testOn = true; el('btnTest').textContent = '■ 止める';
+  }
+  function stopTestTone() {
+    const t = window.__test; window.__test = null; testOn = false; el('btnTest').textContent = '▶ 標準音を鳴らす';
+    if (t) { t.g.gain.setTargetAtTime(0, ctx.currentTime, 0.02); setTimeout(() => { try { t.o.stop(); } catch (e) {} }, 120); }
+  }
+  el('btnTest').onclick = () => toggleTest(false);
+  function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+
+  el('btnStart').onclick = () => {
+    stopTestTone();
+    const list = [];
+    [...selF0].sort((x, y) => x - y).forEach(f => ORDER.filter(k => selCond.has(k)).forEach(k => START_OFFSETS.forEach(st => list.push({ f0: f, key: k, start: st }))));
+    trials = shuffle(list); idx = 0; results = []; show('scrTrial'); runTrial();
+  };
+  function runTrial() {
+    const t = trials[idx];
+    el('prog').textContent = '試行 ' + (idx + 1) + ' / ' + trials.length;
+    const e0 = E0(t.f0), a = el('adj');
+    a.min = e0 - RANGE; a.max = e0 + RANGE; a.value = e0 + t.start;
+    startVoice(t.f0, t.key, e0 + t.start);
+    el('btnPause').textContent = '■ 一時停止';
+  }
+  el('adj').addEventListener('input', () => setB(+el('adj').value));
+  document.querySelectorAll('.fine button').forEach(b => b.onclick = () => {
+    const a = el('adj'); a.value = Math.min(+a.max, Math.max(+a.min, +a.value + +b.dataset.d)); setB(+a.value);
+  });
+  el('btnPause').onclick = () => {
+    if (voice) { stopVoice(); el('btnPause').textContent = '▶ 再開'; }
+    else { startVoice(trials[idx].f0, trials[idx].key, +el('adj').value); el('btnPause').textContent = '■ 一時停止'; }
+  };
+  el('btnDecide').onclick = () => {
+    const t = trials[idx];
+    results.push({ f0: t.f0, key: t.key, start: t.start, pse: +el('adj').value });
+    stopVoice(); idx++;
+    if (idx < trials.length) runTrial(); else showResults();
+  };
+
+  // ---- drawing
+  function prep(canvas) {
+    const dpr = window.devicePixelRatio || 1, w = canvas.clientWidth, h = canvas.clientHeight;
+    canvas.width = w * dpr; canvas.height = h * dpr;
+    const c = canvas.getContext('2d'); c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, w, h);
+    return { c, w, h };
+  }
+  function drawSpec(canvas, key, f0) {
+    const { c, w, h } = prep(canvas);
+    const x = f => 8 + (w - 16) * f / FMAX, base = h - 16;
+    c.fillStyle = '#E3EFF4'; c.fillRect(x(2000), 0, x(4000) - x(2000), base);
+    c.fillStyle = '#7B8C96'; c.font = '10px system-ui, sans-serif'; c.textAlign = 'center';
+    c.fillText('2〜4 kHz', (x(2000) + x(4000)) / 2, 11);
+    c.strokeStyle = '#7B8C96'; c.beginPath(); c.moveTo(8, base); c.lineTo(w - 8, base); c.stroke();
+    [0, 2000, 4000, 6000, 8000].forEach(f => c.fillText(f / 1000 + 'k', x(f), h - 3));
+    harmonics(key, f0).forEach((a, i) => { const bh = (base - 14) * Math.abs(a); c.fillStyle = '#0E6E8A'; c.fillRect(x(f0 * (i + 1)) - 1.5, base - bh, 3, bh); });
+  }
+  function drawWave(canvas, key, f0) {
+    const { c, w, h } = prep(canvas);
+    const hs = harmonics(key, f0), N = 400, P = 2, mid = h / 2 + 4, ys = []; let mx = 1e-9;
+    for (let i = 0; i <= N; i++) { const th = 2 * Math.PI * P * i / N; let v = 0; hs.forEach((a, k) => { v += a * Math.sin((k + 1) * th); }); ys.push(v); mx = Math.max(mx, Math.abs(v)); }
+    c.fillStyle = '#7B8C96'; c.font = '10px system-ui, sans-serif'; c.textAlign = 'left'; c.fillText('波形（2周期）', 6, 11);
+    c.strokeStyle = '#C9D6DC'; c.lineWidth = 1; c.beginPath(); c.moveTo(4, mid); c.lineTo(w - 4, mid); c.stroke();
+    c.strokeStyle = '#0E6E8A'; c.lineWidth = 2; c.lineJoin = 'round'; c.beginPath();
+    ys.forEach((v, i) => { const x = 4 + (w - 8) * i / N, y = mid - (v / mx) * (h / 2 - 12); i ? c.lineTo(x, y) : c.moveTo(x, y); });
+    c.stroke();
+  }
+  function drawContour(canvas, pts) {         // pts: [{f, m}] pure-tone results
+    const { c, w, h } = prep(canvas);
+    const L = 34, R = 10, T = 10, B = 22, fa = 150, fb = 5500;
+    const vals = pts.map(p => p.m).concat([0]);
+    const lo = Math.min(-10, Math.floor(Math.min(...vals) / 5) * 5 - 5), hi = Math.max(20, Math.ceil(Math.max(...vals) / 5) * 5 + 5);
+    const X = f => L + (w - L - R) * (Math.log(f / fa) / Math.log(fb / fa)), Y = d => T + (h - T - B) * (1 - (d - lo) / (hi - lo));
+    c.font = '10px system-ui, sans-serif'; c.fillStyle = '#7B8C96'; c.strokeStyle = '#C9D6DC'; c.lineWidth = 1;
+    for (let d = Math.ceil(lo / 10) * 10; d <= hi; d += 10) { c.beginPath(); c.moveTo(L, Y(d)); c.lineTo(w - R, Y(d)); c.stroke(); c.textAlign = 'right'; c.fillText((d > 0 ? '+' : '') + d, L - 4, Y(d) + 3); }
+    c.textAlign = 'center';
+    [200, 500, 1000, 2000, 4000].forEach(f => { c.beginPath(); c.moveTo(X(f), T); c.lineTo(X(f), h - B); c.stroke(); c.fillText(f >= 1000 ? f / 1000 + 'k' : f, X(f), h - 8); });
+    c.strokeStyle = '#7B8C96'; c.lineWidth = 1.5; c.setLineDash([4, 3]); c.beginPath();
+    for (let i = 0; i <= 80; i++) { const f = fa * Math.pow(fb / fa, i / 80), d = ISO(f) - 40; i ? c.lineTo(X(f), Y(d)) : c.moveTo(X(f), Y(d)); }
+    c.stroke(); c.setLineDash([]);
+    c.fillStyle = '#7B8C96'; c.textAlign = 'left'; c.fillText('点線：ISO 226（40 phon）', L + 6, T + 10);
+    c.fillStyle = '#fff'; c.strokeStyle = '#7B8C96'; c.lineWidth = 1.5; c.beginPath(); c.arc(X(1000), Y(0), 4, 0, 7); c.fill(); c.stroke();
+    const sorted = pts.slice().sort((p, q) => p.f - q.f);
+    c.strokeStyle = '#0E6E8A'; c.lineWidth = 2.5; c.beginPath(); sorted.forEach((p, i) => i ? c.lineTo(X(p.f), Y(p.m)) : c.moveTo(X(p.f), Y(p.m))); c.stroke();
+    sorted.forEach(p => { c.fillStyle = '#0E6E8A'; c.beginPath(); c.arc(X(p.f), Y(p.m), 4.5, 0, 7); c.fill(); });
+  }
+
+  function showResults() {
+    show('scrResult');
+    const fs = [...selF0].sort((x, y) => x - y), keys = ORDER.filter(k => selCond.has(k)), multi = fs.length > 1;
+    const row = {};                     // row[f][k] = {m, up, dn}
+    fs.forEach(f => { row[f] = {}; keys.forEach(k => {
+      const rs = results.filter(r => r.f0 === f && r.key === k);
+      row[f][k] = { m: rs.reduce((a, r) => a + r.pse, 0) / rs.length, up: rs.find(r => r.start < 0).pse, dn: rs.find(r => r.start > 0).pse };
+    }); });
+    const hasPure = selCond.has('pure');
+
+    // ---- summary (rough picture first)
+    const arrow = (d, ref, name, extra) => {
+      const ab = Math.abs(d);
+      if (ab < 0.5) return '<li><span class="ic eq">＝</span><span><b>' + name + '</b>は、' + ref + 'と<b>ほぼ同じ</b>音圧で、同じ大きさに聞こえた。</span></li>';
+      return '<li><span class="ic ' + (d < 0 ? 'dn' : '') + '">' + (d < 0 ? '▼' : '▲') + '</span><span><b>' + name + '</b>は、' + ref + 'より <b>' + ab.toFixed(1) + ' dB ' + (d < 0 ? '小さい' : '大きい') + '</b>音圧で、同じ大きさに聞こえた。</span></li>';
+    };
+    let html = '';
+    fs.forEach(f => {
+      const r = row[f]; const items = [];
+      if (multi) html += '<div class="fh">比較音の基本周波数：' + f + ' Hz</div>';
+      if (hasPure) {
+        if (f === REF_F) items.push('<li><span class="ic eq">1k</span><span><b>対照</b>：同じ 1000 Hz の純音どうしの差は <b>' + fmt(r.pure.m) + ' dB</b>（調整のばらつきの目安）。</span></li>');
+        else items.push(arrow(r.pure.m, '1000 Hz の標準音', '純音（' + f + ' Hz）').replace('<span class="ic eq">＝</span>', '<span class="ic eq">1k</span>'));
+        keys.filter(k => k !== 'pure').forEach(k => items.push(arrow(r[k].m - r.pure.m, '純音', COND[k].name)));
+      } else {
+        keys.forEach(k => items.push(arrow(r[k].m, '1000 Hz の標準音', COND[k].name + (multi ? '' : '（' + f + ' Hz）'))));
+      }
+      html += '<ul>' + items.join('') + '</ul>';
+    });
+    html += '<p class="hint">▼：小さい音圧で足りた音は、同じ音圧なら、比べた相手より大きく聞こえる音です。</p>';
+    el('summary').innerHTML = html;
+
+    // ---- contour chart (pure tones at 2+ frequencies)
+    const pts = hasPure ? fs.map(f => ({ f, m: row[f].pure.m })) : [];
+    const cc = el('contourBox'); cc.hidden = pts.length < 2;
+    if (pts.length >= 2) drawContour(el('contour'), pts);
+
+    // ---- details
+    const list = el('resList'); list.innerHTML = '';
+    fs.forEach(f => {
+      if (multi) { const h2 = document.createElement('h2'); h2.textContent = '基本周波数 ' + f + ' Hz'; list.appendChild(h2); }
+      keys.forEach(k => {
+        const r = row[f][k], pr = pred40(k, f);
+        const div = document.createElement('div'); div.className = 'res';
+        const pos = Math.max(-30, Math.min(30, r.m)) / 30 * 50;
+        const note = (k === 'pure' && f === REF_F) ? '標準音と同じ周波数の純音（対照）。0 dB に近いほど、調整のばらつきは小さい。' : COND[k].note;
+        div.innerHTML = '<h3><span>' + COND[k].name + (multi ? '（' + f + ' Hz）' : '') + '</span><span class="v">' + fmt(r.m) + ' dB</span></h3>' +
+          '<div class="bar"><div class="zero"></div><div class="fill" style="' + (pos >= 0 ? 'left:50%;width:' + pos + '%' : 'left:' + (50 + pos) + '%;width:' + (-pos) + '%') + '"></div></div>' +
+          '<div class="pair"><canvas class="cw"></canvas><canvas class="cs"></canvas></div>' +
+          '<small>↑小さい方から ' + fmt(r.up) + '　／　↓大きい方から ' + fmt(r.dn) + '（dB）<br>' + note +
+          (hasPure && k !== 'pure' ? '<br>純音との差：' + fmt(r.m - row[f].pure.m) + ' dB' : '') +
+          '<br>参考：40 phon の曲線で重みづけすると ' + fmt(pr) + ' dB</small>';
+        list.appendChild(div);
+        drawWave(div.querySelector('.cw'), k, f); drawSpec(div.querySelector('.cs'), k, f);
+      });
+    });
+
+    // ---- how to read
+    const li = [];
+    if (hasPure && fs.some(f => f !== REF_F)) li.push('純音の値は、等ラウドネス曲線の1点にあたります。低い音ほど、1 kHz と同じ大きさに聞こえるために大きな音圧が必要です（第2章）。');
+    if (hasPure && fs.includes(REF_F)) li.push('1000 Hz の純音は標準音と同じ周波数の対照なので、0 dB からのずれは調整のばらつきを表します。');
+    if (hasPure && keys.length > 1) li.push('「純音との差」が、音色（倍音）の効果です。マイナスなら、倍音を含むほうが同じ音圧でも大きく聞こえたことを表します。');
+    if (keys.some(k => k !== 'pure')) li.push('スペクトルの 2〜4 kHz（耳の感度が高い帯域）に倍音が多いほど、大きく聞こえやすくなります。');
+    li.push('「参考」は、40 phon の曲線で単純に重みづけした値で、実際の大きさとは一致しません。結果はイヤホンの特性にも影響されます。');
+    el('interp').innerHTML = '<b>見方</b><ul>' + li.map(t => '<li>' + t + '</li>').join('') + '</ul>';
+    window.__rows = row;
+  }
+
+  el('btnCopy').onclick = () => {
+    const lines = ['F0_Hz,condition,start,PSE_dB'];
+    results.slice().sort((a, b) => a.f0 - b.f0 || ORDER.indexOf(a.key) - ORDER.indexOf(b.key) || a.start - b.start)
+      .forEach(r => lines.push([r.f0, COND[r.key].name, r.start < 0 ? 'up' : 'down', r.pse.toFixed(1)].join(',')));
+    const txt = lines.join('\n'), ta = el('csv'); ta.value = txt; ta.hidden = false;
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(() => { el('btnCopy').textContent = 'コピーしました'; }).catch(() => { ta.select(); });
+    else ta.select();
+  };
+  el('btnAgain').onclick = () => { el('btnCopy').textContent = '結果をコピー（CSV）'; el('csv').hidden = true; show('scrStart'); };
+  document.addEventListener('visibilitychange', () => { if (document.hidden) { stopVoice(); stopTestTone(); } });
+
+  window.__api = { harmonics, pred40, E0, ISO, COND, ORDER, getTrial: () => trials[idx] };
+})();
+</script>
+</body>
+</html>
