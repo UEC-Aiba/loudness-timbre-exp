@@ -4,7 +4,7 @@
 標準音（純音）と同じ大きさに聞こえるように、比較音の大きさを調整する実験を行う、スマホ用の静的Webアプリです（`index.html` 1枚のみ、外部ライブラリなし）。実験は2種類あります：①音色・等ラウドネス曲線、②**帯域幅（臨界帯域幅）**。
 
 ## 公開URL
-[公開](https://uec-aiba.github.io/loudness-timbre-exp/)
+[ラウドネスと音色の実験アプリ（調整法）](https://uec-aiba.github.io/loudness-timbre-exp/)
 
 ## 機能
 - 標準音は、等ラウドネス曲線と同じ 1000 Hz の純音（固定）
