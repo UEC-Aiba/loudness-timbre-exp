@@ -62,11 +62,22 @@
 <!-- ============ 開始画面 ============ -->
 <section id="scrStart">
   <div class="card">
-    <h2 style="margin-top:0">比較する音色（複数選択）</h2>
-    <div class="seg" id="condsel" style="grid-template-columns:repeat(4,1fr)"></div>
-    <h2>比較音の基本周波数（複数選択）</h2>
-    <div class="seg" id="f0sel" style="grid-template-columns:repeat(3,1fr)"></div>
-    <p class="sub" style="margin:0">標準音は 1000 Hz の純音で固定です。<b>1000 Hz</b> を選ぶと標準音と同じ高さになり、音色の効果だけを取り出せます。<b>純音だけ</b>を選び、周波数を<b>複数</b>選ぶと、等ラウドネス曲線（自分の聞こえの特性）が描けます。</p>
+    <h2 style="margin-top:0">実験の種類</h2>
+    <div class="seg" id="kindsel" style="grid-template-columns:1fr 1fr"></div>
+    <div id="grpTimbre">
+      <h2 style="margin-top:6px">比較する音色（複数選択）</h2>
+      <div class="seg" id="condsel" style="grid-template-columns:repeat(4,1fr)"></div>
+      <h2>比較音の基本周波数（複数選択）</h2>
+      <div class="seg" id="f0sel" style="grid-template-columns:repeat(3,1fr)"></div>
+      <p class="sub" style="margin:0">標準音は 1000 Hz の純音で固定です。<b>1000 Hz</b> を選ぶと標準音と同じ高さになり、音色の効果だけを取り出せます。<b>純音だけ</b>を選び、周波数を<b>複数</b>選ぶと、等ラウドネス曲線（自分の聞こえの特性）が描けます。</p>
+    </div>
+    <div id="grpBw" hidden>
+      <h2 style="margin-top:6px">4つの純音の幅 ΔF（複数選択）</h2>
+      <div class="seg" id="bwsel" style="grid-template-columns:repeat(3,1fr)"></div>
+      <h2>中心周波数（複数選択）</h2>
+      <div class="seg" id="censel" style="grid-template-columns:repeat(3,1fr)"></div>
+      <p class="sub" style="margin:0">比較音は、<b>同じ強さの4つの純音</b>を、中心周波数のまわりに等間隔に並べたものです（ΔF ＝ いちばん高い音といちばん低い音の周波数差）。標準音は、<b>中心周波数の純音</b>です。ΔF が<b>臨界帯域幅より狭いか広いか</b>で、大きさが変わるかどうかを調べます（Zwicker ら, 1957 と同じ考え方）。</p>
+    </div>
     <p class="sub" id="count" style="margin:8px 0 0; font-weight:700; color:var(--title)"></p>
   </div>
   <div class="card">
@@ -77,7 +88,7 @@
   <div class="card">
     <h2 style="margin-top:0">2. 実験のしかた</h2>
     <ul style="margin:0; padding-left:1.2em">
-      <li>A（標準音：1000 Hz の純音）とB（比較音）が交互に鳴ります。</li>
+      <li>A（標準音の純音）とB（比較音）が交互に鳴ります。</li>
       <li>スライダーでBの大きさを変え、AとBが<b>同じ大きさ</b>に聞こえたら「決定」を押します（高さが違っても、大きさだけを比べます）。</li>
       <li>試行の回数は、選んだ音色と周波数の数で決まります（上に表示）。</li>
     </ul>
@@ -113,9 +124,10 @@
 <section id="scrResult" hidden>
   <h2 style="margin-top:0">結果（まとめ）</h2>
   <div class="card sum" id="summary"></div>
+  <div class="res" id="bwBox" hidden><h3><span>音の幅 ΔF と，大きさの変化</span></h3><small>縦軸：中心周波数の純音と同じ大きさにするために必要な音圧差（dB）。点線：臨界帯域幅。</small><canvas id="bwchart" style="height:210px"></canvas></div>
   <div class="res" id="contourBox" hidden><h3><span>あなたの等ラウドネス曲線（純音）</span></h3><small>縦軸：標準音（1000 Hz）と同じ大きさにするために必要な音圧差（dB）</small><canvas id="contour" style="height:190px"></canvas></div>
   <h2>くわしい結果</h2>
-  <p class="sub">0 dB ＝ 標準音（1000 Hz）と同じ音圧（RMS）。<b>プラス</b>は、標準音と同じ大きさに聞こえるのに、より大きな音圧が必要だったことを表します。</p>
+  <p class="sub" id="zeroNote">0 dB ＝ 標準音（1000 Hz）と同じ音圧（RMS）。<b>プラス</b>は、標準音と同じ大きさに聞こえるのに、より大きな音圧が必要だったことを表します。</p>
   <div id="resList"></div>
   <div class="note" id="interp"></div>
   <button class="big ghost" id="btnCopy" type="button">結果をコピー（CSV）</button>
@@ -133,6 +145,16 @@
     saw:  { name: 'ノコギリ波', amp: n => 1 / n, note: 'すべての倍音を含み、高次倍音が強い。' },
   };
   const ORDER = ['pure', 'tri', 'sq', 'saw'];
+  // ---- bandwidth experiment: four equally intense pure tones, evenly spaced over DF Hz around a centre frequency
+  const BW_LIST = [50, 100, 200, 400, 800, 1600];
+  const BW_CENTRES = [500, 1000, 2000];
+  const BW_E0 = -4;                                            // slider centre for the bandwidth trials (dB re equal RMS)
+  const cbWidth = fHz => 25 + 75 * Math.pow(1 + 1.4 * Math.pow(fHz / 1000, 2), 0.69);   // critical bandwidth (Hz): dictionary formula
+  const bwKey = d => 'bw' + d;
+  const isBw = key => typeof key === 'string' && key.indexOf('bw') === 0;
+  const bwDF = key => +key.slice(2);
+  const bwTones = (centre, dF) => [0, 1, 2, 3].map(k => centre - dF / 2 + k * dF / 3);   // tone frequencies (Hz)
+  BW_LIST.forEach(d => { COND[bwKey(d)] = { name: 'ΔF ' + d + ' Hz', bw: d, note: '同じ強さの4つの純音（幅 ΔF）。' }; });
   const REF_DBFS = -40;       // standard tone (1 kHz) RMS (dBFS)
   const REF_F = 1000;         // standard tone frequency (Hz)
   const FMAX = 8000;          // harmonics up to 8 kHz
@@ -217,17 +239,23 @@
 
   function startVoice(f0, key, startDb) {
     ensureAudio(); stopVoice();
-    const oscA = ctx.createOscillator(); oscA.type = 'sine'; oscA.frequency.value = REF_F;
+    const bw = isBw(key), refF = bw ? f0 : REF_F;                  // for bandwidth trials, f0 is the centre frequency (= standard tone)
+    const oscA = ctx.createOscillator(); oscA.type = 'sine'; oscA.frequency.value = refF;
     const lvA = ctx.createGain(); lvA.gain.value = gSine();
     const gateA = ctx.createGain(); gateA.gain.value = 0;
     oscA.connect(lvA); lvA.connect(gateA); gateA.connect(master);
-    const { wave, comp } = makeWave(harmonics(key, f0));
-    const oscB = ctx.createOscillator(); oscB.setPeriodicWave(wave); oscB.frequency.value = f0;
-    const lvB = ctx.createGain(); lvB.gain.value = gB(startDb, comp);
-    const gateB = ctx.createGain(); gateB.gain.value = 0;
-    oscB.connect(lvB); lvB.connect(gateB); gateB.connect(master);
-    oscA.start(); oscB.start();
-    voice = { oscA, oscB, lvB, gateA, gateB, comp };
+    const lvB = ctx.createGain(), gateB = ctx.createGain(); gateB.gain.value = 0;
+    let oscBs = [], comp = 1;
+    if (bw) {                                                       // four equal sines; amplitude 0.5 each => RMS equal to a unit sine
+      bwTones(f0, bwDF(key)).forEach(fq => { const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = fq; const g = ctx.createGain(); g.gain.value = 0.5; o.connect(g); g.connect(lvB); oscBs.push(o); });
+    } else {
+      const w = makeWave(harmonics(key, f0)); comp = w.comp;
+      const o = ctx.createOscillator(); o.setPeriodicWave(w.wave); o.frequency.value = f0; o.connect(lvB); oscBs.push(o);
+    }
+    lvB.gain.value = gB(startDb, comp);
+    lvB.connect(gateB); gateB.connect(master);
+    oscA.start(); oscBs.forEach(o => o.start());
+    voice = { oscA, oscBs, lvB, gateA, gateB, comp };
     nextT = ctx.currentTime + 0.1;
     const loop = () => {
       if (!voice) return;
@@ -256,7 +284,7 @@
     if (voice) {
       const v = voice; voice = null;
       [v.gateA, v.gateB].forEach(g => { g.gain.cancelScheduledValues(ctx.currentTime); g.gain.setTargetAtTime(0, ctx.currentTime, 0.01); });
-      setTimeout(() => { try { v.oscA.stop(); v.oscB.stop(); } catch (e) {} }, 150);
+      setTimeout(() => { try { v.oscA.stop(); v.oscBs.forEach(o => o.stop()); } catch (e) {} }, 150);
     }
   }
   function setB(db) { if (voice) voice.lvB.gain.setTargetAtTime(gB(db, voice.comp), ctx.currentTime, 0.02); }
@@ -266,6 +294,9 @@
   const show = id => { ['scrStart', 'scrTrial', 'scrResult'].forEach(x => { el(x).hidden = x !== id; }); el('lead').hidden = id !== 'scrStart'; window.scrollTo(0, 0); };
   const F0_OPTIONS = [220, 440, 880, 1000, 2000, 4000];
   const selF0 = new Set([880]), selCond = new Set(ORDER);
+  const selBw = new Set([50, 100, 200, 400, 1600]), selCen = new Set([1000]);
+  let kind = 'timbre';                                            // 'timbre' (incl. equal-loudness contour) | 'bw'
+  const kindLabel = { timbre: '音色・等ラウドネス曲線', bw: '帯域幅（臨界帯域幅）' };
   let trials = [], idx = 0, results = [], testOn = false;
   const fmt = v => (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(1);
 
@@ -287,17 +318,34 @@
     const setTo = (set, arr) => { if (arr.length) { set.clear(); arr.forEach(v => set.add(v)); } };
     if (mode === 'contour') { setTo(selCond, ['pure']); setTo(selF0, F0_OPTIONS.slice()); }
     else if (mode === 'timbre') { setTo(selCond, ORDER.slice()); setTo(selF0, [1000]); }
+    else if (mode === 'bandwidth') { kind = 'bw'; }
+    const bwq = (q.get('bw') || '').split(',').map(Number).filter(v => BW_LIST.includes(v)); if (bwq.length) { kind = 'bw'; setTo(selBw, bwq); }
+    const ceq = (q.get('center') || '').split(',').map(Number).filter(v => BW_CENTRES.includes(v)); if (ceq.length) { kind = 'bw'; setTo(selCen, ceq); }
     const c = (q.get('cond') || '').split(',').filter(k => ORDER.includes(k));
     const f = (q.get('f0') || '').split(',').map(Number).filter(v => F0_OPTIONS.includes(v));
     setTo(selCond, c); setTo(selF0, f);
   })();
   chips(el('condsel'), ORDER, selCond, k => COND[k].name);
   chips(el('f0sel'), F0_OPTIONS, selF0, f => f + ' Hz');
+  chips(el('bwsel'), BW_LIST, selBw, d => d + ' Hz');
+  chips(el('censel'), BW_CENTRES, selCen, f => f + ' Hz');
   function updateCount() {
-    const n = selF0.size * selCond.size * START_OFFSETS.length;
+    const n = (kind === 'bw' ? selBw.size * selCen.size : selF0.size * selCond.size) * START_OFFSETS.length;
     el('count').textContent = '試行は全部で ' + n + ' 回（約 ' + Math.max(1, Math.round(n * 0.6)) + ' 分）';
   }
-  updateCount();
+  function setKind(k) {
+    kind = k;
+    el('grpTimbre').hidden = k !== 'timbre'; el('grpBw').hidden = k !== 'bw';
+    el('kindsel').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.k === k ? 'true' : 'false'));
+    el('lead').textContent = k === 'bw'
+      ? '中心周波数の純音（標準音）と、同じ強さの4つの純音の組（比較音）を比べます。比較音の幅 ΔF が臨界帯域幅より狭いか広いかで、「同じ大きさ」に聞こえる音圧がどう変わるかを調べます（調整法）。'
+      : '等ラウドネス曲線と同じく、1000 Hz の純音（標準音）を基準にします。比較音が標準音と「同じ大きさ」に聞こえるように、比較音の大きさを調整します（調整法）。';
+    updateCount();
+  }
+  [['timbre', '音色・等ラウドネス曲線'], ['bw', '帯域幅（臨界帯域幅）']].forEach(([k, label]) => {
+    const b = document.createElement('button'); b.type = 'button'; b.dataset.k = k; b.textContent = label; b.onclick = () => setKind(k); el('kindsel').appendChild(b);
+  });
+  setKind(kind);
 
   function toggleTest(restart) {
     if (testOn && !restart) { stopTestTone(); return; }
@@ -317,13 +365,14 @@
   el('btnStart').onclick = () => {
     stopTestTone();
     const list = [];
-    [...selF0].sort((x, y) => x - y).forEach(f => ORDER.filter(k => selCond.has(k)).forEach(k => START_OFFSETS.forEach(st => list.push({ f0: f, key: k, start: st }))));
+    if (kind === 'bw') [...selCen].sort((x, y) => x - y).forEach(c => BW_LIST.filter(d => selBw.has(d)).forEach(d => START_OFFSETS.forEach(st => list.push({ f0: c, key: bwKey(d), start: st }))));
+    else [...selF0].sort((x, y) => x - y).forEach(f => ORDER.filter(k => selCond.has(k)).forEach(k => START_OFFSETS.forEach(st => list.push({ f0: f, key: k, start: st }))));
     trials = shuffle(list); idx = 0; results = []; show('scrTrial'); runTrial();
   };
   function runTrial() {
     const t = trials[idx];
     el('prog').textContent = '試行 ' + (idx + 1) + ' / ' + trials.length;
-    const e0 = E0(t.f0), a = el('adj');
+    const e0 = isBw(t.key) ? BW_E0 : E0(t.f0), a = el('adj');
     a.min = e0 - RANGE; a.max = e0 + RANGE; a.value = e0 + t.start;
     startVoice(t.f0, t.key, e0 + t.start);
     el('btnPause').textContent = '■ 一時停止';
@@ -390,7 +439,98 @@
     sorted.forEach(p => { c.fillStyle = '#0E6E8A'; c.beginPath(); c.arc(X(p.f), Y(p.m), 4.5, 0, 7); c.fill(); });
   }
 
+  // bandwidth experiment: spectrum of the four tones, with the critical band around the centre shaded
+  function drawSpecBw(canvas, centre, dF) {
+    const { c, w, h } = prep(canvas), FM = 3200, x = f => 8 + (w - 16) * f / FM, base = h - 16, cbw = cbWidth(centre);
+    c.fillStyle = '#E3EFF4'; c.fillRect(x(centre - cbw / 2), 0, x(centre + cbw / 2) - x(centre - cbw / 2), base);
+    c.fillStyle = '#7B8C96'; c.font = '10px system-ui, sans-serif'; c.textAlign = 'center';
+    c.fillText('臨界帯域幅（約 ' + Math.round(cbw) + ' Hz）', Math.min(Math.max(x(centre), 70), w - 70), 11);
+    c.strokeStyle = '#7B8C96'; c.beginPath(); c.moveTo(8, base); c.lineTo(w - 8, base); c.stroke();
+    [0, 1000, 2000, 3000].forEach(f => c.fillText(f / 1000 + 'k', x(f), h - 3));
+    bwTones(centre, dF).forEach(f => { const bh = base - 18; c.fillStyle = '#0E6E8A'; c.fillRect(x(f) - 1.5, base - bh, 3, bh); });
+  }
+  function drawBwChart(canvas, series) {      // series: [{c, color, pts:[{d, m}]}]
+    const { c, w, h } = prep(canvas);
+    const L = 34, R = 10, T = 22, B = 24, da = 35, db = 2200, all = [];
+    series.forEach(s => s.pts.forEach(p => all.push(p.m)));
+    const lo = Math.min(-12, Math.floor(Math.min(...all) / 4) * 4 - 2), hi = Math.max(6, Math.ceil(Math.max(...all) / 4) * 4 + 2);
+    const X = d => L + (w - L - R) * (Math.log(d / da) / Math.log(db / da)), Y = v => T + (h - T - B) * (1 - (v - lo) / (hi - lo));
+    c.font = '10px system-ui, sans-serif'; c.fillStyle = '#7B8C96'; c.strokeStyle = '#C9D6DC'; c.lineWidth = 1;
+    for (let v = Math.ceil(lo / 4) * 4; v <= hi; v += 4) { c.beginPath(); c.moveTo(L, Y(v)); c.lineTo(w - R, Y(v)); c.stroke(); c.textAlign = 'right'; c.fillText((v > 0 ? '+' : '') + v, L - 4, Y(v) + 3); }
+    c.textAlign = 'center';
+    [50, 100, 200, 400, 800, 1600].forEach(d => { c.beginPath(); c.moveTo(X(d), T); c.lineTo(X(d), h - B); c.stroke(); c.fillText(String(d), X(d), h - 10); });
+    c.fillText('ΔF（Hz）', w - 36, h - 0);
+    c.strokeStyle = '#7B8C96'; c.lineWidth = 1.5; c.beginPath(); c.moveTo(L, Y(0)); c.lineTo(w - R, Y(0)); c.stroke();   // 0 dB = same RMS as the pure tone
+    series.forEach(s => {
+      const cx = X(cbWidth(s.c));                                                   // critical bandwidth (dashed vertical line)
+      c.strokeStyle = s.color; c.lineWidth = 1.5; c.setLineDash([4, 3]); c.beginPath(); c.moveTo(cx, T); c.lineTo(cx, h - B); c.stroke(); c.setLineDash([]);
+    });
+    series.forEach(s => {
+      const pts = s.pts.slice().sort((a, b) => a.d - b.d);
+      c.strokeStyle = s.color; c.lineWidth = 2.5; c.beginPath(); pts.forEach((p, i) => i ? c.lineTo(X(p.d), Y(p.m)) : c.moveTo(X(p.d), Y(p.m))); c.stroke();
+      pts.forEach(p => { c.fillStyle = s.color; c.beginPath(); c.arc(X(p.d), Y(p.m), 4.5, 0, 7); c.fill(); });
+    });
+    c.textAlign = 'left'; let lx = L + 6;
+    series.forEach(s => { c.fillStyle = s.color; c.fillRect(lx, 6, 12, 4); c.fillStyle = '#445A66'; const lab = '中心 ' + s.c + ' Hz'; c.fillText(lab, lx + 16, 11); lx += 16 + c.measureText(lab).width + 12; });
+  }
+
+  function showResultsBw() {
+    show('scrResult'); el('contourBox').hidden = true; el('bwBox').hidden = false;
+    el('zeroNote').innerHTML = '0 dB ＝ 標準音（中心周波数の純音）と同じ音圧（RMS）。<b>マイナス</b>は、標準音と同じ大きさに聞こえるのに、より小さい音圧で足りたことを表します。';
+    const cs = [...selCen].sort((a, b) => a - b), ds = BW_LIST.filter(d => selBw.has(d));
+    const row = {};
+    cs.forEach(cn => { row[cn] = {}; ds.forEach(d => {
+      const rs = results.filter(r => r.f0 === cn && r.key === bwKey(d));
+      row[cn][d] = { m: rs.reduce((a, r) => a + r.pse, 0) / rs.length, up: rs.find(r => r.start < 0).pse, dn: rs.find(r => r.start > 0).pse };
+    }); });
+    const arrow = (d, name) => {
+      const ab = Math.abs(d);
+      if (ab < 0.5) return '<li><span class="ic eq">＝</span><span><b>' + name + '</b>は、標準音と<b>ほぼ同じ</b>音圧で、同じ大きさに聞こえた。</span></li>';
+      return '<li><span class="ic ' + (d < 0 ? 'dn' : '') + '">' + (d < 0 ? '▼' : '▲') + '</span><span><b>' + name + '</b>は、標準音より <b>' + ab.toFixed(1) + ' dB ' + (d < 0 ? '小さい' : '大きい') + '</b>音圧で、同じ大きさに聞こえた。</span></li>';
+    };
+    let html = '';
+    cs.forEach(cn => {
+      const cbw = cbWidth(cn), nar = ds.filter(d => d <= cbw), wid = ds.filter(d => d > cbw);
+      const mean = a => a.reduce((s, d) => s + row[cn][d].m, 0) / a.length;
+      html += '<div class="fh">中心周波数 ' + cn + ' Hz（臨界帯域幅 約 ' + Math.round(cbw) + ' Hz）</div><ul>' +
+        ds.map(d => arrow(row[cn][d].m, 'ΔF ' + d + ' Hz（臨界帯域幅より' + (d <= cbw ? '狭い' : '広い') + '）')).join('') + '</ul>';
+      if (nar.length && wid.length) {
+        const dm = mean(wid) - mean(nar);
+        html += '<p class="hint"><b>狭い条件の平均 ' + fmt(mean(nar)) + ' dB／広い条件の平均 ' + fmt(mean(wid)) + ' dB</b>。広い条件は、狭い条件より <b>' + Math.abs(dm).toFixed(1) + ' dB ' + (dm < 0 ? '小さい' : '大きい') + '</b>音圧で、同じ大きさに聞こえた。</p>';
+      }
+    });
+    html += '<p class="hint">▼：小さい音圧で足りた音は、同じ音圧なら、標準音より大きく聞こえる音です。</p>';
+    el('summary').innerHTML = html;
+    const colors = { 500: '#D1782F', 1000: '#0E6E8A', 2000: '#7B8C96' };
+    drawBwChart(el('bwchart'), cs.map(cn => ({ c: cn, color: colors[cn] || '#0E6E8A', pts: ds.map(d => ({ d, m: row[cn][d].m })) })));
+    const list = el('resList'); list.innerHTML = '';
+    cs.forEach(cn => {
+      if (cs.length > 1) { const h2 = document.createElement('h2'); h2.textContent = '中心周波数 ' + cn + ' Hz'; list.appendChild(h2); }
+      ds.forEach(d => {
+        const r = row[cn][d], cbw = cbWidth(cn), tn = bwTones(cn, d);
+        const div = document.createElement('div'); div.className = 'res';
+        const pos = Math.max(-30, Math.min(30, r.m)) / 30 * 50;
+        div.innerHTML = '<h3><span>ΔF ' + d + ' Hz（臨界帯域幅より' + (d <= cbw ? '狭い' : '広い') + '）</span><span class="v">' + fmt(r.m) + ' dB</span></h3>' +
+          '<div class="bar"><div class="zero"></div><div class="fill" style="' + (pos >= 0 ? 'left:50%;width:' + pos + '%' : 'left:' + (50 + pos) + '%;width:' + (-pos) + '%') + '"></div></div>' +
+          '<canvas class="csb" style="height:70px"></canvas>' +
+          '<small>↑小さい方から ' + fmt(r.up) + '　／　↓大きい方から ' + fmt(r.dn) + '（dB）<br>4つの純音：' + tn.map(f => Math.round(f)).join('，') + ' Hz</small>';
+        list.appendChild(div);
+        drawSpecBw(div.querySelector('.csb'), cn, d);
+      });
+    });
+    const li = ['ΔF が<b>臨界帯域幅より狭い</b>間は、大きさは純音とほぼ同じで、0 dB に近い値になると予想されます（4つの音が、聴覚の同じフィルタの中に入るため）。',
+      'ΔF が臨界帯域幅を<b>超える</b>と、成分が複数の周波数帯域にまたがり、それぞれの大きさが足し合わされるので、同じ音圧でも大きく聞こえ、マイナスの値が大きくなると予想されます（スペクトル・ラウドネス加算）。',
+      'Zwicker ら（1957）でも、臨界帯域幅までは大きさが変わらず、それを超えると大きくなりました。効果は中程度の音圧レベルで最大でした。',
+      '臨界帯域幅の目安（辞典の近似式）：500 Hz で約 ' + Math.round(cbWidth(500)) + ' Hz、1000 Hz で約 ' + Math.round(cbWidth(1000)) + ' Hz、2000 Hz で約 ' + Math.round(cbWidth(2000)) + ' Hz。中心周波数が高いほど、折れ曲がりの位置が右へ動くか、確かめてみましょう。',
+      '調整のばらつきや、イヤホンの特性、個人差があります。結果は、みんなの結果とも比べてみてください。'];
+    el('interp').innerHTML = '<b>見方</b><ul>' + li.map(x => '<li>' + x + '</li>').join('') + '</ul>';
+    window.__rows = row;
+  }
+
   function showResults() {
+    if (kind === 'bw') { showResultsBw(); return; }
+    el('bwBox').hidden = true;
+    el('zeroNote').innerHTML = '0 dB ＝ 標準音（1000 Hz）と同じ音圧（RMS）。<b>プラス</b>は、標準音と同じ大きさに聞こえるのに、より大きな音圧が必要だったことを表します。';
     show('scrResult');
     const fs = [...selF0].sort((x, y) => x - y), keys = ORDER.filter(k => selCond.has(k)), multi = fs.length > 1;
     const row = {};                     // row[f][k] = {m, up, dn}
@@ -459,9 +599,16 @@
   }
 
   el('btnCopy').onclick = () => {
-    const lines = ['F0_Hz,condition,start,PSE_dB'];
-    results.slice().sort((a, b) => a.f0 - b.f0 || ORDER.indexOf(a.key) - ORDER.indexOf(b.key) || a.start - b.start)
-      .forEach(r => lines.push([r.f0, COND[r.key].name, r.start < 0 ? 'up' : 'down', r.pse.toFixed(1)].join(',')));
+    let lines;
+    if (kind === 'bw') {
+      lines = ['center_Hz,deltaF_Hz,start,PSE_dB'];
+      results.slice().sort((a, b) => a.f0 - b.f0 || bwDF(a.key) - bwDF(b.key) || a.start - b.start)
+        .forEach(r => lines.push([r.f0, bwDF(r.key), r.start < 0 ? 'up' : 'down', r.pse.toFixed(1)].join(',')));
+    } else {
+      lines = ['F0_Hz,condition,start,PSE_dB'];
+      results.slice().sort((a, b) => a.f0 - b.f0 || ORDER.indexOf(a.key) - ORDER.indexOf(b.key) || a.start - b.start)
+        .forEach(r => lines.push([r.f0, COND[r.key].name, r.start < 0 ? 'up' : 'down', r.pse.toFixed(1)].join(',')));
+    }
     const txt = lines.join('\n'), ta = el('csv'); ta.value = txt; ta.hidden = false;
     if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(() => { el('btnCopy').textContent = 'コピーしました'; }).catch(() => { ta.select(); });
     else ta.select();
@@ -469,7 +616,7 @@
   el('btnAgain').onclick = () => { el('btnCopy').textContent = '結果をコピー（CSV）'; el('csv').hidden = true; show('scrStart'); };
   document.addEventListener('visibilitychange', () => { if (document.hidden) { stopVoice(); stopTestTone(); } });
 
-  window.__api = { harmonics, pred40, E0, ISO, COND, ORDER, getTrial: () => trials[idx] };
+  window.__api = { harmonics, pred40, E0, ISO, COND, ORDER, BW_LIST, BW_CENTRES, bwTones, cbWidth, getKind: () => kind, getTrial: () => trials[idx] };
 })();
 </script>
 </body>
