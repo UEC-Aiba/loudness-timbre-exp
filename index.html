@@ -294,7 +294,7 @@
   const show = id => { ['scrStart', 'scrTrial', 'scrResult'].forEach(x => { el(x).hidden = x !== id; }); el('lead').hidden = id !== 'scrStart'; window.scrollTo(0, 0); };
   const F0_OPTIONS = [220, 440, 880, 1000, 2000, 4000];
   const selF0 = new Set([880]), selCond = new Set(ORDER);
-  const selBw = new Set([50, 100, 200, 400, 1600]), selCen = new Set([1000]);
+  const selBw = new Set([100, 400, 1600]), selCen = new Set([1000]);
   let kind = 'timbre';                                            // 'timbre' (incl. equal-loudness contour) | 'bw'
   const kindLabel = { timbre: '音色・等ラウドネス曲線', bw: '帯域幅（臨界帯域幅）' };
   let trials = [], idx = 0, results = [], testOn = false;
@@ -316,7 +316,7 @@
   (function applyPreset() {
     const q = new URLSearchParams(location.search), mode = q.get('mode');
     const setTo = (set, arr) => { if (arr.length) { set.clear(); arr.forEach(v => set.add(v)); } };
-    if (mode === 'contour') { setTo(selCond, ['pure']); setTo(selF0, F0_OPTIONS.slice()); }
+    if (mode === 'contour') { setTo(selCond, ['pure']); setTo(selF0, [220, 2000, 4000]); }
     else if (mode === 'timbre') { setTo(selCond, ORDER.slice()); setTo(selF0, [1000]); }
     else if (mode === 'bandwidth') { kind = 'bw'; }
     const bwq = (q.get('bw') || '').split(',').map(Number).filter(v => BW_LIST.includes(v)); if (bwq.length) { kind = 'bw'; setTo(selBw, bwq); }
